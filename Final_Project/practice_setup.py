@@ -50,6 +50,8 @@ NUM_AGENTS = max(1, agents_requested) # Will be NUM_AGENTS robots running around
 map_requested = agent_hosts[0].getStringArgument("map")
 # Create the rest of the agent hosts - one for each robot, plus one to give a bird's-eye view:
 agent_hosts += [MalmoPython.AgentHost() for x in range(1, NUM_AGENTS) ]
+goalValues=[(1,1),(1,30),(5,1),(5,30),(10,1),(10,15),(10,30)]
+goal = goalValues[randint(0,len(goalValues)-1)]
 
 # Set up debug output:
 for ah in agent_hosts:
@@ -296,7 +298,7 @@ while not timed_out and food:
                     print("First pos ", current_pos[i])
 
                 print('enemy moving:')
-                practice.enemyAgentMoveRand(ah, world_state)
+                practice.enemyAgentMoveToGoal(ah, world_state, current_pos[i], goal,.25)
                 ah = agent_hosts[i]
                 world_state = ah.getWorldState()
                 if world_state.is_mission_running and world_state.number_of_observations_since_last_state > 0:
@@ -307,7 +309,7 @@ while not timed_out and food:
                     print("Second pos ", current_pos[i])
                 eCurr['x'] = current_pos[i][0]
                 eCurr['z'] = current_pos[i][1]
-                if (current_pos[i] == (pCurr['x'], pCurr['z'])):
+                if (current_pos[i] == goal):
                     g_score -= 100
                     timed_out = True
                     break
@@ -318,8 +320,8 @@ while not timed_out and food:
                     current_pos[i] = (ob[u'XPos'], ob[u'ZPos'])
                     print("First pos ", current_pos[i])
 
-                if (current_pos[i] == (eCurr['x'], eCurr['z'])):
-                    g_score -= 100
+                if (current_pos[i] == goal):
+                    g_score += 100
                     timed_out = True
                     break
 

@@ -245,24 +245,35 @@ def manhattan_distance(start, end):
 ###
 ###
 # This functions moves the enemy agent randomly #
-def enemyAgentMoveRand(agent, ws):
+def enemyAgentMoveToGoal(agent, ws, position, goal, randPercentMove):
     time.sleep(0.1)
     illegalgrid = illegalMoves(ws)
     legalLST = ["right", "left", "forward", "back"]
     for x in illegalgrid:
         if x in legalLST:
             legalLST.remove(x)
-    y = randint(0,len(legalLST)-1)
-    togo = legalLST[y]
-    if togo == "right":
-        moveRight(agent)
+    mvrand = rand(0,1)
+    if mvrand < randPercentMove:
+        y = randint(0,len(legalLST)-1)
+        togo = legalLST[y]
+        if togo == "right":
+            moveRight(agent)
 
-    elif togo == "left":
-        moveLeft(agent)
+        elif togo == "left":
+            moveLeft(agent)
 
-    elif togo == "forward":
-        moveStraight(agent)
+        elif togo == "forward":
+            moveStraight(agent)
 
-    elif togo == "back":
-        moveBack(agent)
+        elif togo == "back":
+            moveBack(agent)
+    else:
+        if position[0] < goal[0]:
+            moveRight(agent)
+        elif position[1] < goal[1]:
+            moveStraight(agent)
+        elif position[0] > goal[0]:
+            moveLeft(agent)
+        else:
+            moveBack(agent)
 
