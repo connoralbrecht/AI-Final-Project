@@ -89,7 +89,6 @@ def illegalMoves(world_state):
         msg = world_state.observations[-1].text
         observations = json.loads(msg)
         grid = observations.get(u'floor3x3W', 0)
-        print(grid)
         if grid[3] == u'diamond_block':
             blocks.append("right")
         if grid[1] == u'diamond_block':
