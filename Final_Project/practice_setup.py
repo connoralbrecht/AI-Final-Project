@@ -1,4 +1,3 @@
-
 # Created by Minbiao Han and Roman Sharykin
 # AI fall 2018
 
@@ -30,8 +29,10 @@ agent_hosts = [MalmoPython.AgentHost()]
 
 # Parse the command-line options:
 agent_hosts[0].addOptionalFlag( "debug,d", "Display debug information.")
-agent_hosts[0].addOptionalIntArgument("agents,n", "Number of agents to use, including observer.", 2)
-agent_hosts[0].addOptionalStringArgument("map,m", "Name of map to be used", "openClassic")
+agent_hosts[0].addOptionalIntArgument("agents,a", "Number of agents to use, including observer.", 2)
+agent_hosts[0].addOptionalStringArgument("map,m", "Name of map to be used", "practice")
+agent_hosts[0].addOptionalIntArgument("port,p", "The port to start on", 10000)
+agent_hosts[0].addOptionalFloatArgument("noise,n", "Enemy chance to randomly move", 0.3)
 
 try:
     agent_hosts[0].parse( sys.argv )
@@ -48,6 +49,8 @@ INTEGRATION_TEST_MODE = agent_hosts[0].receivedArgument("test")
 agents_requested = agent_hosts[0].getIntArgument("agents")
 NUM_AGENTS = max(1, agents_requested) # Will be NUM_AGENTS robots running around, plus one static observer.
 map_requested = agent_hosts[0].getStringArgument("map")
+PORT = agent_hosts[0].getIntArgument("port")
+NOISE = agent_hosts[0].getFloatArgument("noise")
 # Create the rest of the agent hosts - one for each robot, plus one to give a bird's-eye view:
 agent_hosts += [MalmoPython.AgentHost() for x in range(1, NUM_AGENTS) ]
 
@@ -153,7 +156,7 @@ eStart = {'x': 0, 'z': 0}
 pCurr = {'x': 0, 'z': 0}
 eCurr = {'x': 0, 'z': 0}
 
-food = []
+possible_dests = []
 
 def mazeCreator():
     genstring = ""
@@ -172,9 +175,9 @@ def mazeCreator():
                 pCurr['x'] = i
                 pCurr['z'] = j
 
-            elif level_mat[i][j] == ".":
+            elif level_mat[i][j] == "D":
                 genstring += GenBlock(i, 55, j, "glowstone") + "\n"
-                food.append((i, j))
+                possible_dests.append((i, j))
 
             elif level_mat[i][j] == "G":
                 eStart['x'] = i
@@ -251,7 +254,7 @@ def getXML(reset):
     return xml
 
 client_pool = MalmoPython.ClientPool()
-for x in range(10000, 10000 + NUM_AGENTS + 1):
+for x in range(PORT, PORT + NUM_AGENTS + 1):
     client_pool.add( MalmoPython.ClientInfo('127.0.0.1', x) )
 
 
@@ -269,14 +272,21 @@ safeWaitForStart(agent_hosts)
 time.sleep(1)
 running = True
 
+# Everything prior to here is mostly boring setup stuff. After this is the more interesting bits
+
 current_pos = [(0,0) for x in range(NUM_AGENTS)]
 # When an agent is killed, it stops getting observations etc. Track this, so we know when to bail.
 
 timed_out = False
 g_score = 0
+selected_dest=(0,0)
+dest_reached= False
+dest_scores = [0 for x in possible_dests]
+#dest_probs = [1/len(possible_dests) for x in possible_dests]
 
-# Main mission loop
-while not timed_out and food:
+selected_dest = choice(possible_dests)
+# This while loop represents one iteration of the "game"
+while not timed_out and not dest_reached:
     print('global score:', g_score)
 
     print("--------- START OF TURN -------------")
@@ -288,15 +298,17 @@ while not timed_out and food:
             timed_out = True
         if world_state.is_mission_running and world_state.number_of_observations_since_last_state > 0:
             msg = world_state.observations[-1].text
-            ob = json.loads(msg)
+            ob = json.loads(msg) 
                 #print(current_pos[i])
+
+            # Handles enemy movement
             if ob['Name'] == 'Enemy':
                 if "XPos" in ob and "ZPos" in ob:
                     current_pos[i] = (ob[u'XPos'], ob[u'ZPos'])
-                    print("First pos ", current_pos[i])
+                    #print("Enemy initial pos ", current_pos[i])
 
                 print('enemy moving:')
-                practice.enemyAgentMoveRand(ah, world_state)
+                practice.enemyMoveDest(ah, current_pos[i], world_state, selected_dest, NOISE)
                 ah = agent_hosts[i]
                 world_state = ah.getWorldState()
                 if world_state.is_mission_running and world_state.number_of_observations_since_last_state > 0:
@@ -304,19 +316,26 @@ while not timed_out and food:
                     ob = json.loads(msg)
                 if "XPos" in ob and "ZPos" in ob:
                     current_pos[i] = (ob[u'XPos'], ob[u'ZPos'])
-                    print("Second pos ", current_pos[i])
+                    #print("Enemy updated pos ", current_pos[i])
                 eCurr['x'] = current_pos[i][0]
                 eCurr['z'] = current_pos[i][1]
                 if (current_pos[i] == (pCurr['x'], pCurr['z'])):
                     g_score -= 100
                     timed_out = True
                     break
+                if ((current_pos[i][0] - 0.5, current_pos[i][1] - 0.5) == selected_dest):
+                    print("Enemy reached destination!")
+                    dest_reached= True
+                    g_score -=30 
+                    break
                 time.sleep(0.1)
+
+            # Handles agent movement
             if ob['Name'] == 'Player':
 
                 if "XPos" in ob and "ZPos" in ob:
                     current_pos[i] = (ob[u'XPos'], ob[u'ZPos'])
-                    print("First pos ", current_pos[i])
+                    #print("Agent initial pos ", current_pos[i])
 
                 if (current_pos[i] == (eCurr['x'], eCurr['z'])):
                     g_score -= 100
@@ -324,7 +343,7 @@ while not timed_out and food:
                     break
 
                 print('agent moving')
-                practice.reflexAgentMove(ah, current_pos[i], world_state, food, (eCurr['x'], eCurr['z']))
+                #dest_scores=practice.agent_move(ah, current_pos[i], world_state, possible_dests, (eCurr['x'], eCurr['z']),dest_scores)
                 ah = agent_hosts[i]
                 world_state = ah.getWorldState()
                 if world_state.is_mission_running and world_state.number_of_observations_since_last_state > 0:
@@ -332,11 +351,12 @@ while not timed_out and food:
                     ob = json.loads(msg)
                 if "XPos" in ob and "ZPos" in ob:
                     current_pos[i] = (ob[u'XPos'], ob[u'ZPos'])
-                    print("Second pos ", current_pos[i])
-                if ((current_pos[i][0] - 0.5, current_pos[i][1] - 0.5) in food):
-                    print("Food found!")
-                    food.remove((current_pos[i][0] - 0.5, current_pos[i][1] - 0.5))
-                    g_score += 10
+                    #print("Agent updated pos ", current_pos[i])
+                if ((current_pos[i][0] - 0.5, current_pos[i][1] - 0.5) == selected_dest):
+                    #print("Agent reached destination!")
+                    dest_reached= True
+                    g_score += 50
+                    break
                 if (current_pos[i] == (eCurr['x'], eCurr['z'])):
                     g_score -= 100
                     timed_out = True
@@ -352,7 +372,7 @@ while not timed_out and food:
                     print("TIMED OUT")
                     break
     time.sleep(0.05)
-print(food)
+
 print(g_score)
 
 print("Waiting for mission to end ", end=' ')
