@@ -80,6 +80,10 @@ def choose_dest_block(pos, wstate, dest_blocks, enemy_pos,dest_block_percents):
         count=count+1
     print("count 2: ", count)
     return dest_block_percents, dest_blocks[choice_dest_index]
+
+def chooseAction(pos, target_dest):
+    return "right"
+
 ### Move the agent here
 # Output: void (should just call the correct movement function)
 def agentMove(agent, pos, wstate, dest_blocks, enemy_pos,dest_block_percents):
@@ -87,7 +91,9 @@ def agentMove(agent, pos, wstate, dest_blocks, enemy_pos,dest_block_percents):
         print("Error: no blocks.")
 
     ### YOUR CODE HERE ###
-    new_dest_block_percents, target_dest = choose_dest_block(pos, wstate, dest_blocks, enemy_pos,dest_block_percents)
+    #new_dest_block_percents, target_dest = choose_dest_block(pos, wstate, dest_blocks, enemy_pos,dest_block_percents)
+    d = chooseAction(pos, target_dest)
+
     if d == "right":
         moveRight(agent)
     elif d == "left":
@@ -97,6 +103,10 @@ def agentMove(agent, pos, wstate, dest_blocks, enemy_pos,dest_block_percents):
     elif d == "back":
         moveBack(agent)
 
+    return
+
+def agent_move(agent, pos, wstate, destinations, enemy_pos):
+    new_dest_block_percents, target_dest = choose_dest_block(pos, wstate, dest_blocks, enemy_pos,dest_block_percents)
     return
 
 ### Helper methods for you to use ###
@@ -172,3 +182,63 @@ def enemyAgentMoveRand(agent, ws):
 
     elif togo == "back":
         moveBack(agent)
+
+# Used to choose a fastest direction for movement towards a destination
+def chooseDirection(agent, pos, dest):
+    directions = []
+    direction = ""
+    if (pos[0] - 0.5) < dest[0]:
+        directions.append("left")
+    elif (pos[0] - 0.5) > dest[0]:
+        directions.append("right")
+
+    if (pos[1] - 0.5) < dest[1]:
+        directions.append("forward")
+    elif (pos[1] - 0.5) > dest[1]:
+        directions.append("back")
+        
+    if len(directions) > 0:
+        direction = choice(directions)
+    return direction
+
+# Used to make an agent move in a direction
+def chooseMove(agent,move):
+    if move == "right":
+        agent.sendCommand("strafe 1")
+    elif move == "left":
+        agent.sendCommand("strafe -1")
+    elif move == "forward":
+        agent.sendCommand("move 1")
+    elif move == "back":
+        agent.sendCommand("move -1")
+    time.sleep(0.1)
+    return
+
+# Randomly select the destination of the enemy
+def chooseDest(destinations):
+    if len(destinations) > 0:
+        return choice(destinations)
+    else:
+        return
+
+# Moves the enemy towards the selected destination
+def enemyMoveDest(agent, pos, wstate, dest, noise=0.0):
+    time.sleep(0.1)
+    illegalgrid = illegalMoves(wstate)
+    chance = random.random()
+    legalLST = ["right", "left", "forward", "back"]
+    for x in illegalgrid:
+        if x in legalLST:
+            legalLST.remove(x)
+    togo = []
+    # Check for a legal move
+    if len(legalLST) > 0:
+        # Move randomly w/ prob=noise
+        if chance < noise:
+            y = randint(0,len(legalLST)-1)
+            togo.append(legalLST[y])
+        # Otherwise move towards destination block
+        else:
+            direction = chooseDirection(agent,pos,dest)
+            chooseMove(agent,direction)
+    return
