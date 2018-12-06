@@ -1,4 +1,3 @@
-
 # Created by Minbiao Han and Roman Sharykin
 # AI fall 2018
 
@@ -117,7 +116,7 @@ def safeWaitForStart(agent_hosts):
     if time.time() - start_time >= time_out:
         print("Timed out while waiting for mission to start - bailing.")
         exit(1)
-    print()
+    print()     
     print("Mission has started.")
 
 
@@ -153,7 +152,7 @@ eStart = {'x': 0, 'z': 0}
 pCurr = {'x': 0, 'z': 0}
 eCurr = {'x': 0, 'z': 0}
 
-food = []
+possible_dests = []
 
 def mazeCreator():
     genstring = ""
@@ -174,9 +173,11 @@ def mazeCreator():
 
             elif level_mat[i][j] == ".":
                 genstring += GenBlock(i, 55, j, "glowstone") + "\n"
-                food.append((i, j))
+                print("happened D!")
+                possible_dests.append((i, j))
 
             elif level_mat[i][j] == "G":
+                print("happened!")
                 eStart['x'] = i
                 eStart['z'] = j
                 eCurr['x'] = i
@@ -274,9 +275,11 @@ current_pos = [(0,0) for x in range(NUM_AGENTS)]
 
 timed_out = False
 g_score = 0
-
+selected_dest=(0,0)
+dest_reached= False
 # Main mission loop
-while not timed_out and food:
+dest_scores = [0 for x in possible_dests]
+while not timed_out and not dest_reached:
     print('global score:', g_score)
 
     print("--------- START OF TURN -------------")
@@ -288,7 +291,7 @@ while not timed_out and food:
             timed_out = True
         if world_state.is_mission_running and world_state.number_of_observations_since_last_state > 0:
             msg = world_state.observations[-1].text
-            ob = json.loads(msg)
+            ob = json.loads(msg) 
                 #print(current_pos[i])
             if ob['Name'] == 'Enemy':
                 if "XPos" in ob and "ZPos" in ob:
@@ -311,6 +314,11 @@ while not timed_out and food:
                     g_score -= 100
                     timed_out = True
                     break
+                if ((current_pos[i][0] - 0.5, current_pos[i][1] - 0.5) == selected_dest):
+                    print("block found!")
+                    dest_reached=true
+                    g_score -=30 
+                    break
                 time.sleep(0.1)
             if ob['Name'] == 'Player':
 
@@ -324,7 +332,7 @@ while not timed_out and food:
                     break
 
                 print('agent moving')
-                practice.reflexAgentMove(ah, current_pos[i], world_state, food, (eCurr['x'], eCurr['z']))
+                dest_scores=practice.agentMove(ah, current_pos[i], world_state, possible_dests, (eCurr['x'], eCurr['z']),dest_scores)
                 ah = agent_hosts[i]
                 world_state = ah.getWorldState()
                 if world_state.is_mission_running and world_state.number_of_observations_since_last_state > 0:
@@ -333,10 +341,11 @@ while not timed_out and food:
                 if "XPos" in ob and "ZPos" in ob:
                     current_pos[i] = (ob[u'XPos'], ob[u'ZPos'])
                     print("Second pos ", current_pos[i])
-                if ((current_pos[i][0] - 0.5, current_pos[i][1] - 0.5) in food):
-                    print("Food found!")
-                    food.remove((current_pos[i][0] - 0.5, current_pos[i][1] - 0.5))
-                    g_score += 10
+                if ((current_pos[i][0] - 0.5, current_pos[i][1] - 0.5) == selected_dest):
+                    print("block found!")
+                    dest_reached= True
+                    g_score += 50
+                    break
                 if (current_pos[i] == (eCurr['x'], eCurr['z'])):
                     g_score -= 100
                     timed_out = True
@@ -352,7 +361,7 @@ while not timed_out and food:
                     print("TIMED OUT")
                     break
     time.sleep(0.05)
-print(food)
+
 print(g_score)
 
 print("Waiting for mission to end ", end=' ')
